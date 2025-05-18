@@ -126,3 +126,11 @@ BullMQ (instead of RabbitMQ/Kafka) is used for queue processing.
  README with setup and assumptions
 
  Code pushed to GitHub: notification-service
+
+ ## 📚 API Documentation
+
+The full API documentation is available via Swagger:
+
+🔗 [http://localhost:3000/api-docs](http://localhost:3000/api-docs)
+
+📌 Note: This works only when the server is running locally.
