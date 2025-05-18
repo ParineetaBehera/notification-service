@@ -1,13 +1,13 @@
-// workers/notificationWorker.js
-
 const { Worker } = require('bullmq');
 const Notification = require('../models/Notification');
 const { redisConnection } = require('../utils/redisClient');
 const connectDB = require('../data/db');
+const sendEmail = require('../utils/emailSender'); // 🔔 import
+
+
 
 console.log('👷 Worker started. Listening for notification jobs...');
 
-// Step 1: Connect to MongoDB
 connectDB().then(() => {
   console.log('✅ MongoDB connected in worker');
 }).catch((err) => {
@@ -15,27 +15,12 @@ connectDB().then(() => {
   process.exit(1);
 });
 
-// Step 2: Set up BullMQ Worker
 const worker = new Worker('notificationQueue', async (job) => {
   const { userId, type, message } = job.data;
 
   console.log('📥 New Job received:', job.name, job.data);
 
-  // Simulate sending
-  switch (type) {
-    case 'email':
-      console.log(`📧 Sending EMAIL to user ${userId}: ${message}`);
-      break;
-    case 'sms':
-      console.log(`📱 Sending SMS to user ${userId}: ${message}`);
-      break;
-    case 'in-app':
-    default:
-      console.log(`🔔 In-app notification for user ${userId}: ${message}`);
-      break;
-  }
-
-  // Save to MongoDB
+  // Save notification to MongoDB
   await Notification.create({
     userId,
     type,
@@ -43,12 +28,22 @@ const worker = new Worker('notificationQueue', async (job) => {
     timestamp: new Date(),
   });
 
-  console.log(`📝 [${type}] Saved notification for user ${userId}`);
+  // Send Email if type is "email"
+  if (type === 'email') {
+    try {
+      await sendEmail(userId, 'New Notification', message);
+      console.log(`📧 Email sent to ${userId}`);
+    } catch (err) {
+      console.error(`❌ Failed to send email to ${userId}`, err.message);
+      throw err; // so BullMQ retries
+    }
+  }
+
+  console.log(`📝 [${type}] Notification processed for user ${userId}`);
 }, {
   connection: redisConnection,
 });
 
-// Step 3: Handle events
 worker.on('completed', (job) => {
   console.log(`✅ Job completed: ${job.id}`);
 });
@@ -56,3 +51,5 @@ worker.on('completed', (job) => {
 worker.on('failed', (job, err) => {
   console.error(`❌ Job failed: ${job.id}`, err.message);
 });
+
+
